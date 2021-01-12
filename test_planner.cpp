@@ -54,12 +54,14 @@ rmf_traffic::schedule::Participant add_obstacle(
 void print_result(
   const std::string& label,
   const std::size_t samples,
-  const double total_time)
+  const double total_time,
+  const std::size_t node_count)
 {
   std::cout << label
             << "\n -- Total time for " << samples << " samples: "
             << total_time
             << "\n -- Average time per run: " << total_time/samples
+            << "\n -- Node count: " << node_count
             << "\n" << std::endl;
 }
 
@@ -84,7 +86,10 @@ double test_planner_timing_no_cache(
   const double total_time = rmf_traffic::time::to_seconds(
         finish_time - begin_time);
 
-  print_result(label + " | No Cache", samples, total_time);
+  const auto nodes = rmf_traffic::agv::Planner::Debug::node_count(
+        rmf_traffic::agv::Planner(config, options).plan(start, goal));
+
+  print_result(label + " | No Cache", samples, total_time, nodes);
 
   return total_time;
 }
@@ -112,7 +117,10 @@ double test_planner_timing_with_cache(
   const double total_time = rmf_traffic::time::to_seconds(
         finish_time - begin_time);
 
-  print_result(label + " | With Cache", samples, total_time);
+  const auto nodes = rmf_traffic::agv::Planner::Debug::node_count(
+        rmf_traffic::agv::Planner(config, options).plan(start, goal));
+
+  print_result(label + " | With Cache", samples, total_time, nodes);
 
   return total_time;
 }
