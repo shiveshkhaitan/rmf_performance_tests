@@ -34,6 +34,7 @@ const std::size_t NotObstacleID = std::numeric_limits<std::size_t>::max();
 
 struct Plan
 {
+  std::string robot;
   std::size_t initial_time;
   double initial_orientation;
   std::string initial_waypoint, goal;
@@ -42,11 +43,12 @@ struct Plan
 struct Scenario
 {
   std::string map_file;
-  std::string main_robot;
   std::size_t samples;
 
   std::unordered_map<std::string, rmf_traffic::agv::VehicleTraits> robots;
-  std::unordered_map<std::string, Plan> plans;
+  std::vector<Plan> obstacles;
+
+  Plan plan;
 };
 
 void parse_scenario(std::string scenario_file, Scenario& scenario)
@@ -78,15 +80,6 @@ void parse_scenario(std::string scenario_file, Scenario& scenario)
     throw std::runtime_error("Scenario file is missing the [map] key");
   }
 
-  if (scenario_config["main_robot"])
-  {
-    scenario.main_robot = scenario_config["main_robot"].as<std::string>();
-  }
-  else
-  {
-    throw std::runtime_error("Scenario file is missing the [main_robot] key");
-  }
-
   if (scenario_config["samples"])
   {
     scenario.samples = scenario_config["samples"].as<std::size_t>(100);
@@ -100,15 +93,10 @@ void parse_scenario(std::string scenario_file, Scenario& scenario)
 
   const YAML::Node robots = scenario_config["robots"];
 
-  for (const auto& robot : robots)
+  for (auto iter = robots.begin(); iter != robots.end(); ++iter)
   {
-    if (!robot["robot"])
-    {
-      std::cout << "Missing [robot] key. Skipping entry" << std::endl;
-      continue;
-    }
-
-    const std::string& name = robot["robot"].as<std::string>();
+    const auto& name = iter->first.as<std::string>();
+    const auto& robot = iter->second;
 
     double linear_velocity, linear_acceleration, angular_velocity,
       angular_acceleration;
@@ -259,22 +247,22 @@ void parse_scenario(std::string scenario_file, Scenario& scenario)
     }
   }
 
-  const YAML::Node plans = scenario_config["plans"];
-  for (const auto& plan : plans)
+  const YAML::Node obstacles = scenario_config["obstacles"];
+  for (const auto& obstacle : obstacles)
   {
-    if (!plan["robot"])
+    if (!obstacle["robot"])
     {
       std::cout << "Missing [robot] key. Skipping entry" << std::endl;
       continue;
     }
 
-    const std::string& name = plan["robot"].as<std::string>();
+    const std::string& name = obstacle["robot"].as<std::string>();
 
     std::size_t initial_time;
     double initial_orientation;
     std::string initial_waypoint;
 
-    const auto& start = plan["start"];
+    const auto& start = obstacle["start"];
     if (start)
     {
       const auto& time = start["initial_time"];
@@ -319,11 +307,11 @@ void parse_scenario(std::string scenario_file, Scenario& scenario)
       continue;
     }
 
-    const auto& goal = plan["goal"];
+    const auto& goal = obstacle["goal"];
     if (goal)
     {
-      scenario.plans.insert({name, {initial_time, initial_orientation,
-            initial_waypoint, goal.as<std::string>()}});
+      scenario.obstacles.push_back({name, initial_time, initial_orientation,
+          initial_waypoint, goal.as<std::string>()});
     }
     else
     {
@@ -331,6 +319,75 @@ void parse_scenario(std::string scenario_file, Scenario& scenario)
         "] is missing key [goal]. Skipping entry." << std::endl;
       continue;
     }
+  }
+
+  const YAML::Node plan = scenario_config["plan"];
+  if (plan)
+  {
+    const auto& robot = plan["robot"];
+    if (robot)
+    {
+      scenario.plan.robot = robot.as<std::string>();
+    }
+    else
+    {
+      throw std::runtime_error("Scenario file is missing the [plan[robot]] key");
+    }
+    const auto& start = plan["start"];
+    if (start)
+    {
+      const auto& time = start["initial_time"];
+      if (time)
+      {
+        scenario.plan.initial_time = time.as<std::size_t>(0);
+      }
+      else
+      {
+        std::cout <<
+          "Plan is missing key [start[initial_time]]. Using default value [0]."
+                  <<
+          std::endl;
+      }
+      const auto& waypoint = start["initial_waypoint"];
+      if (waypoint)
+      {
+        scenario.plan.initial_waypoint = waypoint.as<std::string>();
+      }
+      else
+      {
+        throw std::runtime_error(
+                "Plan is missing [start[initial_waypoint]] key.");
+      }
+      const auto& orientation = start["initial_orientation"];
+      if (orientation)
+      {
+        scenario.plan.initial_orientation = waypoint.as<double>(0);
+      }
+      else
+      {
+        std::cout <<
+          "Plan is missing key [start[initial_orientation]]. Assuming initial_orientation 0."
+                  << std::endl;
+      }
+    }
+    else
+    {
+      throw std::runtime_error("Plan is missing [start] key.");
+    }
+
+    const auto& goal = plan["goal"];
+    if (goal)
+    {
+      scenario.plan.goal = goal.as<std::string>();
+    }
+    else
+    {
+      throw std::runtime_error("Plan is missing [goal] key.");
+    }
+  }
+  else
+  {
+    throw std::runtime_error("Scenario file is missing the [plan] key");
   }
 }
 
@@ -505,10 +562,10 @@ int main(int argc, char* argv[])
   const std::string map_file = std::string(TEST_MAP_DIR) + scenario.map_file;
   std::cout << "Loading [" << map_file << "]" << std::endl;
 
-  const auto& main_robot = scenario.robots.find(scenario.main_robot);
-  if (main_robot == scenario.robots.end())
+  const auto& plan_robot = scenario.robots.find(scenario.plan.robot);
+  if (plan_robot == scenario.robots.end())
   {
-    std::cout << "Main robot [" << scenario.main_robot <<
+    std::cout << "Plan robot [" << scenario.plan.robot <<
       "]'s traits and profile missing" << std::endl;
     return 0;
   }
@@ -516,7 +573,7 @@ int main(int argc, char* argv[])
   rmf_traffic::agv::Graph graph;
   try
   {
-    graph = rmf_fleet_adapter::agv::parse_graph(map_file, main_robot->second);
+    graph = rmf_fleet_adapter::agv::parse_graph(map_file, plan_robot->second);
   }
   catch (YAML::BadFile& e)
   {
@@ -533,36 +590,27 @@ int main(int argc, char* argv[])
 
   // We'll make some "obstacles" in the environment by planning routes between
   // various waypoints.
-  rmf_traffic::agv::Planner planner{
-    {graph, main_robot->second},
-    {nullptr}
-  };
 
   const auto database = std::make_shared<rmf_traffic::schedule::Database>();
   std::vector<rmf_traffic::schedule::Participant> obstacles;
 
-  for (const auto& plan : scenario.plans)
+  for (const auto& obstacle : scenario.obstacles)
   {
-    if (std::strcmp(plan.first.c_str(), scenario.main_robot.c_str()) == 0)
-    {
-      continue;
-    }
+    const auto& robot = scenario.robots.find(obstacle.robot);
 
-    const auto& robot = scenario.robots.find(plan.first);
-
+    rmf_traffic::agv::Planner planner = rmf_traffic::agv::Planner{
+      {graph, plan_robot->second},
+      {nullptr}
+    };
     if (robot == scenario.robots.end())
     {
-      std::cout << "Robot [" << plan.first <<
-        "] is missing traits and profile. Using traits and profile of main_robot."
+      std::cout << "Robot [" << obstacle.robot <<
+        "] is missing traits and profile. Using traits and profile of plan_robot."
                 << std::endl;
-      rmf_traffic::agv::Planner planner{
-        {graph, main_robot->second},
-        {nullptr}
-      };
     }
     else
     {
-      rmf_traffic::agv::Planner planner{
+      planner = rmf_traffic::agv::Planner{
         {graph, robot->second},
         {nullptr}
       };
@@ -572,31 +620,25 @@ int main(int argc, char* argv[])
       add_obstacle(
         planner, database,
         {
-          start_time + std::chrono::seconds(plan.second.initial_time),
-          get_wp(plan.second.initial_waypoint),
-          plan.second.initial_orientation * M_PI / 180.0
+          start_time + std::chrono::seconds(obstacle.initial_time),
+          get_wp(obstacle.initial_waypoint),
+          obstacle.initial_orientation * M_PI / 180.0
         },
-        get_wp(plan.second.goal)
+        get_wp(obstacle.goal)
       )
     );
   }
 
-  const auto& plan = scenario.plans.find(scenario.main_robot);
-  if (plan == scenario.plans.end())
-  {
-    std::cout << "Main robot [" << scenario.main_robot << "]'s plan missing" <<
-      std::endl;
-    return 0;
-  }
+  const auto& plan = scenario.plan;
 
   test_planner(
-    scenario.map_file + " " + plan->second.initial_waypoint + " -> " + plan->second.goal,
+    scenario.map_file + " " + plan.initial_waypoint + " -> " + plan.goal,
     scenario.samples,
-    graph, main_robot->second, database,
+    graph, plan_robot->second, database,
     {
-      start_time + std::chrono::seconds(plan->second.initial_time),
-      get_wp(plan->second.initial_waypoint), plan->second.initial_orientation
+      start_time + std::chrono::seconds(plan.initial_time),
+      get_wp(plan.initial_waypoint), plan.initial_orientation
     },
-    get_wp(plan->second.goal)
+    get_wp(plan.goal)
   );
 }
