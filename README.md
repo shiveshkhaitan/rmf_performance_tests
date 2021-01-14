@@ -7,7 +7,7 @@ git clone https://github.com/osrf/rmf_performance_tests.git
 cd rmf_performance_tests
 mkdir build && cd build
 cmake ..
-make install
+make
 ```
 
 ## Testing
