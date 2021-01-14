@@ -60,6 +60,10 @@ target_compile_definitions(
   test_planner
   PRIVATE
     "TEST_MAP_DIR=\"${OUTPUT_MAP_DIR}\""
+    "TEST_SCENARIO_DIR=\"${CMAKE_CURRENT_BINARY_DIR}/scenarios/\""
 )
+
+install(DIRECTORY scenarios/
+  DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/scenarios")
 
 ament_package()
