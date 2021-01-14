@@ -63,7 +63,13 @@ target_compile_definitions(
     "TEST_SCENARIO_DIR=\"${CMAKE_CURRENT_BINARY_DIR}/scenarios/\""
 )
 
-install(DIRECTORY scenarios/
-  DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/scenarios")
+file(GLOB_RECURSE scenarios "scenarios/*.yaml")
+
+foreach(scenario ${scenarios})
+
+  get_filename_component(scenario_file ${scenario} NAME)
+  configure_file(${scenario} "${CMAKE_CURRENT_BINARY_DIR}/scenarios/${scenario_file}" COPYONLY)
+
+endforeach()
 
 ament_package()
