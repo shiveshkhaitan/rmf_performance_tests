@@ -112,7 +112,9 @@ install(
 ament_export_targets(rmf_performance_tests HAS_LIBRARY_TARGET)
 
 install(
-    TARGETS rmf_performance_tests
+    TARGETS
+      rmf_performance_tests
+      test_planner
     EXPORT rmf_performance_tests
     RUNTIME DESTINATION lib/rmf_performance_tests
     LIBRARY DESTINATION lib
