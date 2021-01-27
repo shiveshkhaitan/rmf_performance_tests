@@ -22,12 +22,8 @@
 #include <rmf_traffic/agv/debug/debug_Planner.hpp>
 #include <rmf_traffic/agv/RouteValidator.hpp>
 
-#include <rmf_traffic/geometry/Circle.hpp>
-
 #include <rmf_traffic/schedule/Database.hpp>
 #include <rmf_traffic/schedule/Participant.hpp>
-
-#include <rmf_fleet_adapter/agv/parse_graph.hpp>
 
 #include "rmf_performance_tests/Scenario.hpp"
 

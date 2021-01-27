@@ -32,7 +32,7 @@ int main(int argc, char* argv[])
   {
     parse_scenario(argv[1], scenario);
   }
-  catch (std::runtime_error e)
+  catch (std::runtime_error& e)
   {
     std::cout << e.what() << std::endl;
     return 0;
@@ -40,29 +40,16 @@ int main(int argc, char* argv[])
 
   using namespace std::chrono_literals;
 
-  const std::string map_file = std::string(TEST_MAP_DIR) + scenario.map_file;
-  std::cout << "Loading [" << map_file << "]" << std::endl;
-
   const auto& plan_robot = scenario.robots.find(scenario.plan.robot);
   if (plan_robot == scenario.robots.end())
   {
     std::cout << "Plan robot [" << scenario.plan.robot <<
-      "]'s traits and profile missing" << std::endl;
+      "]'s limits and profile missing" << std::endl;
     return 0;
   }
 
-  rmf_traffic::agv::Graph graph;
-  try
-  {
-    graph = rmf_fleet_adapter::agv::parse_graph(map_file, plan_robot->second);
-  }
-  catch (YAML::BadFile& e)
-  {
-    std::cout << "Failed to load map file [" << map_file << "]" << std::endl;
-    return 0;
-  }
-
-  const auto get_wp = [&](const std::string& name)
+  const auto get_wp =
+    [&](const rmf_traffic::agv::Graph& graph, const std::string& name)
     {
       return graph.find_waypoint(name)->index();
     };
@@ -79,47 +66,61 @@ int main(int argc, char* argv[])
   {
     const auto& robot = scenario.robots.find(obstacle.robot);
 
-    rmf_traffic::agv::Planner planner = rmf_traffic::agv::Planner{
-      {graph, plan_robot->second},
-      {nullptr}
-    };
     if (robot == scenario.robots.end())
     {
       std::cout << "Robot [" << obstacle.robot <<
-        "] is missing traits and profile. Using traits and profile of plan_robot."
+        "] is missing limits / profile / graph. Using limits, profile and graph of plan_robot."
                 << std::endl;
+
+      rmf_traffic::agv::Planner planner = rmf_traffic::agv::Planner{
+        plan_robot->second,
+        {nullptr}
+      };
+
+      obstacles.emplace_back(
+        rmf_performance_tests::add_obstacle(
+          planner, database,
+          {
+            start_time + std::chrono::seconds(obstacle.initial_time),
+            get_wp(plan_robot->second.graph(), obstacle.initial_waypoint),
+            obstacle.initial_orientation * M_PI / 180.0
+          },
+          get_wp(plan_robot->second.graph(), obstacle.goal)
+        )
+      );
     }
     else
     {
-      planner = rmf_traffic::agv::Planner{
-        {graph, robot->second},
+      rmf_traffic::agv::Planner planner = rmf_traffic::agv::Planner{
+        robot->second,
         {nullptr}
       };
-    }
 
-    obstacles.emplace_back(
-      rmf_performance_tests::add_obstacle(
-        planner, database,
-        {
-          start_time + std::chrono::seconds(obstacle.initial_time),
-          get_wp(obstacle.initial_waypoint),
-          obstacle.initial_orientation * M_PI / 180.0
-        },
-        get_wp(obstacle.goal)
-      )
-    );
+      obstacles.emplace_back(
+        rmf_performance_tests::add_obstacle(
+          planner, database,
+          {
+            start_time + std::chrono::seconds(obstacle.initial_time),
+            get_wp(robot->second.graph(), obstacle.initial_waypoint),
+            obstacle.initial_orientation * M_PI / 180.0
+          },
+          get_wp(robot->second.graph(), obstacle.goal)
+        )
+      );
+    }
   }
 
   const auto& plan = scenario.plan;
 
   rmf_performance_tests::test_planner(
-    scenario.map_file + " " + plan.initial_waypoint + " -> " + plan.goal,
+    plan.initial_waypoint + " -> " + plan.goal,
     scenario.samples,
-    graph, plan_robot->second, database,
+    plan_robot->second.graph(), plan_robot->second.vehicle_traits(), database,
     {
       start_time + std::chrono::seconds(plan.initial_time),
-      get_wp(plan.initial_waypoint), plan.initial_orientation
+      get_wp(
+        plan_robot->second.graph(), plan.initial_waypoint), plan.initial_orientation
     },
-    get_wp(plan.goal)
+    get_wp(plan_robot->second.graph(), plan.goal)
   );
 }

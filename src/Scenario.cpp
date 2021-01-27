@@ -15,7 +15,6 @@
  *
 */
 
-#include <rmf_traffic/geometry/Circle.hpp>
 #include "rmf_performance_tests/Scenario.hpp"
 
 void rmf_performance_tests::scenario::parse_scenario(std::string scenario_file,
@@ -39,15 +38,6 @@ void rmf_performance_tests::scenario::parse_scenario(std::string scenario_file,
             "Failed to load scenario file [" + scenario_file + "]");
   }
 
-  if (scenario_config["map"])
-  {
-    scenario.map_file = scenario_config["map"].as<std::string>();
-  }
-  else
-  {
-    throw std::runtime_error("Scenario file is missing the [map] key");
-  }
-
   if (scenario_config["samples"])
   {
     scenario.samples = scenario_config["samples"].as<std::size_t>(100);
@@ -69,11 +59,11 @@ void rmf_performance_tests::scenario::parse_scenario(std::string scenario_file,
     double linear_velocity, linear_acceleration, angular_velocity,
       angular_acceleration;
 
-    const auto& traits = robot["traits"];
-    if (traits)
+    const auto& limits = robot["limits"];
+    if (limits)
     {
-      const auto& linear = traits["linear"];
-      const auto& angular = traits["angular"];
+      const auto& linear = limits["linear"];
+      const auto& angular = limits["angular"];
 
       if (linear)
       {
@@ -87,7 +77,7 @@ void rmf_performance_tests::scenario::parse_scenario(std::string scenario_file,
         else
         {
           std::cout << "Robot [" << name <<
-            "] is missing key [traits[linear[velocity]]]. Skipping entry" <<
+            "] is missing key [limits[linear[velocity]]]. Skipping entry" <<
             std::endl;
           continue;
         }
@@ -99,7 +89,7 @@ void rmf_performance_tests::scenario::parse_scenario(std::string scenario_file,
         else
         {
           std::cout << "Robot [" << name <<
-            "] is missing key [traits[linear[accleration]]]. Skipping entry" <<
+            "] is missing key [limits[linear[accleration]]]. Skipping entry" <<
             std::endl;
           continue;
         }
@@ -107,7 +97,7 @@ void rmf_performance_tests::scenario::parse_scenario(std::string scenario_file,
       else
       {
         std::cout << "Robot [" << name <<
-          "] is missing key [traits[linear]]. Skipping entry" << std::endl;
+          "] is missing key [limits[linear]]. Skipping entry" << std::endl;
       }
 
       if (angular)
@@ -122,7 +112,7 @@ void rmf_performance_tests::scenario::parse_scenario(std::string scenario_file,
         else
         {
           std::cout << "Robot [" << name <<
-            "] is missing key [traits[angular[velocity]]]. Skipping entry" <<
+            "] is missing key [limits[angular[velocity]]]. Skipping entry" <<
             std::endl;
           continue;
         }
@@ -134,7 +124,7 @@ void rmf_performance_tests::scenario::parse_scenario(std::string scenario_file,
         else
         {
           std::cout << "Robot [" << name <<
-            "] is missing key [traits[angular[accleration]]]. Skipping entry" <<
+            "] is missing key [limits[angular[accleration]]]. Skipping entry" <<
             std::endl;
           continue;
         }
@@ -142,13 +132,13 @@ void rmf_performance_tests::scenario::parse_scenario(std::string scenario_file,
       else
       {
         std::cout << "Robot [" << name <<
-          "] is missing key [traits[angular]]. Skipping entry" << std::endl;
+          "] is missing key [limits[angular]]. Skipping entry" << std::endl;
       }
     }
     else
     {
       std::cout << "Robot [" << name <<
-        "] is missing key [traits]. Skipping entry" << std::endl;
+        "] is missing key [limits]. Skipping entry" << std::endl;
       continue;
     }
 
@@ -166,15 +156,47 @@ void rmf_performance_tests::scenario::parse_scenario(std::string scenario_file,
             const auto& radius = footprint["radius"];
             if (radius)
             {
+              const auto& traits = rmf_traffic::agv::VehicleTraits {
+                {linear_velocity, linear_acceleration},
+                {angular_velocity, angular_acceleration},
+                rmf_traffic::Profile{
+                  rmf_traffic::geometry::make_final_convex(
+                    rmf_traffic::geometry::Circle(radius.as<double>()))
+                }};
+
+              rmf_traffic::agv::Graph graph;
+
+              if (robot["graph"])
+              {
+                try
+                {
+                  graph =
+                    rmf_fleet_adapter::agv::parse_graph(std::string(
+                        TEST_MAP_DIR) + robot["graph"].as<std::string>(),
+                      traits);
+                }
+                catch (YAML::BadFile& e)
+                {
+                  std::cout << "Failed to load map file [" << std::string(
+                      TEST_MAP_DIR) + robot["graph"].as<std::string>() << "]" <<
+                    std::endl;
+                  continue;
+                }
+              }
+              else
+              {
+                std::cout << "Robot [" << name <<
+                  "] is missing key [graph]. Skipping entry" <<
+                  std::endl;
+                continue;
+              }
+
               scenario.robots.insert({
                   name,
-                  rmf_traffic::agv::VehicleTraits {
-                    {linear_velocity, linear_acceleration},
-                    {angular_velocity, angular_acceleration},
-                    rmf_traffic::Profile{
-                      rmf_traffic::geometry::make_final_convex(
-                        rmf_traffic::geometry::Circle(radius.as<double>()))
-                    }}});
+                  {
+                    graph,
+                    traits
+                  }});
             }
             else
             {

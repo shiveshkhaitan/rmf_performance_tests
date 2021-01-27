@@ -20,7 +20,9 @@
 
 #include <iostream>
 
-#include <rmf_traffic/agv/VehicleTraits.hpp>
+#include <rmf_traffic/agv/Planner.hpp>
+#include <rmf_traffic/geometry/Circle.hpp>
+#include <rmf_fleet_adapter/agv/parse_graph.hpp>
 
 #include <yaml-cpp/yaml.h>
 
@@ -37,10 +39,10 @@ struct Plan
 
 struct Scenario
 {
-  std::string map_file;
   std::size_t samples;
 
-  std::unordered_map<std::string, rmf_traffic::agv::VehicleTraits> robots;
+  std::unordered_map<std::string,
+    rmf_traffic::agv::Planner::Configuration> robots;
   std::vector<Plan> obstacles;
 
   Plan plan;
