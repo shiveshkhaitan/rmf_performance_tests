@@ -15,19 +15,13 @@
  *
 */
 
-#ifndef RMF_PERFORMANCE_TESTS_RMF_PERFORMANCE_TESTS_
-#define RMF_PERFORMANCE_TESTS_RMF_PERFORMANCE_TESTS_
+#ifndef RMF_PERFORMANCE_TESTS_RMF_PERFORMANCE_TESTS
+#define RMF_PERFORMANCE_TESTS_RMF_PERFORMANCE_TESTS
 
 #include <rmf_traffic/agv/Planner.hpp>
-#include <rmf_traffic/agv/debug/debug_Planner.hpp>
-#include <rmf_traffic/agv/RouteValidator.hpp>
 
 #include <rmf_traffic/schedule/Database.hpp>
 #include <rmf_traffic/schedule/Participant.hpp>
-
-#include "rmf_performance_tests/Scenario.hpp"
-
-#include <iostream>
 
 namespace rmf_performance_tests {
 
@@ -80,4 +74,4 @@ std::string get_map_directory();
 
 }
 
-#endif //RMF_PERFORMANCE_TESTS_RMF_PERFORMANCE_TESTS_
+#endif //RMF_PERFORMANCE_TESTS_RMF_PERFORMANCE_TESTS

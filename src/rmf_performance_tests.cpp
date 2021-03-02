@@ -16,6 +16,9 @@
 */
 
 #include "rmf_performance_tests/rmf_performance_tests.hpp"
+#include <rmf_traffic/agv/debug/debug_Planner.hpp>
+
+#include <iostream>
 
 namespace rmf_performance_tests {
 

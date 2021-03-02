@@ -15,14 +15,10 @@
  *
 */
 
-#ifndef RMF_PERFORMANCE_TESTS_SCENARIO_HPP_
-#define RMF_PERFORMANCE_TESTS_SCENARIO_HPP_
-
-#include <iostream>
+#ifndef RMF_PERFORMANCE_TESTS_SCENARIO_HPP
+#define RMF_PERFORMANCE_TESTS_SCENARIO_HPP
 
 #include <rmf_traffic/agv/Planner.hpp>
-#include <rmf_traffic/geometry/Circle.hpp>
-#include <rmf_fleet_adapter/agv/parse_graph.hpp>
 
 #include <yaml-cpp/yaml.h>
 
@@ -34,10 +30,11 @@ struct Plan
   std::string robot;
   std::size_t initial_time;
   double initial_orientation;
-  std::string initial_waypoint, goal;
+  std::string initial_waypoint;
+  std::string goal;
 };
 
-struct Scenario
+struct Description
 {
   std::size_t samples;
 
@@ -48,9 +45,16 @@ struct Scenario
   Plan plan;
 };
 
-void parse_scenario(std::string scenario_file, Scenario& scenario);
+bool load(std::string file_name, YAML::Node& node);
+
+bool load_graph(
+  std::string file_name,
+  rmf_traffic::agv::VehicleTraits traits,
+  rmf_traffic::agv::Graph& graph);
+
+void parse(std::string scenario_file, Description& description);
 
 }
 }
 
-#endif //RMF_PERFORMANCE_TESTS_SCENARIO_HPP_
+#endif //RMF_PERFORMANCE_TESTS_SCENARIO_HPP

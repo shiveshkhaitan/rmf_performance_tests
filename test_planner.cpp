@@ -16,26 +16,29 @@
 */
 
 #include <rmf_performance_tests/rmf_performance_tests.hpp>
+#include <rmf_performance_tests/Scenario.hpp>
 
 #include <iostream>
+
+#include <yaml-cpp/yaml.h>
 
 int main(int argc, char* argv[])
 {
   if (argc < 2)
   {
     std::cout << "Please provide scenario file name" << std::endl;
-    return 0;
+    return 1;
   }
 
-  rmf_performance_tests::scenario::Scenario scenario;
+  rmf_performance_tests::scenario::Description scenario;
   try
   {
-    parse_scenario(argv[1], scenario);
+    parse(argv[1], scenario);
   }
   catch (std::runtime_error& e)
   {
     std::cout << e.what() << std::endl;
-    return 0;
+    return 1;
   }
 
   using namespace std::chrono_literals;
@@ -45,7 +48,7 @@ int main(int argc, char* argv[])
   {
     std::cout << "Plan robot [" << scenario.plan.robot <<
       "]'s limits and profile missing" << std::endl;
-    return 0;
+    return 1;
   }
 
   const auto get_wp =
