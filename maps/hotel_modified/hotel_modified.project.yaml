@@ -1,0 +1,6 @@
+building:
+  filename: hotel_modified.building.yaml
+name: hotel_modified
+traffic_maps:
+  {}
+version: 1
