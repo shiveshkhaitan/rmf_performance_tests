@@ -18,13 +18,6 @@ obstacles:
       initial_orientation: 0
     goal: n24
 
-  # - robot: main
-  #   start:
-  #     initial_time: 0
-  #     initial_waypoint: s11
-  #     initial_orientation: 0
-  #   goal: n25
-
 plan:
   robot: main
   start:
