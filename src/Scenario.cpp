@@ -74,6 +74,10 @@ void rmf_performance_tests::scenario::parse(
   const std::string key_graph = "graph";
   const std::string key_obstacles = "obstacles";
   const std::string key_robot = "robot";
+  const std::string key_trajectory = "trajectory";
+  const std::string key_time = "time";
+  const std::string key_position = "position";
+  const std::string key_map = "map";
   const std::string key_start = "start";
   const std::string key_goal = "goal";
   const std::string key_initial_time = "initial_time";
@@ -119,7 +123,6 @@ void rmf_performance_tests::scenario::parse(
       "Scenario file is missing the [samples] key. Using default value [100]" <<
       std::endl;
   }
-  std::cout<<description.samples<<std::endl;
 
   const YAML::Node robots = scenario_config[key_robots];
 
@@ -354,62 +357,92 @@ void rmf_performance_tests::scenario::parse(
     double initial_orientation;
     std::string initial_waypoint;
 
-    const auto& start = obstacle[key_start];
-    if (start)
+    const auto& yaml_trajectory = obstacle[key_trajectory];
+    if (yaml_trajectory)
     {
-      const auto& time = start[key_initial_time];
-      if (time)
+      rmf_traffic::Trajectory trajectory;
+      for (const auto& wp : yaml_trajectory)
       {
-        initial_time = time.as<std::size_t>(0);
+        const double time = wp[key_time].as<double>();
+        const auto& p = wp[key_position];
+        const Eigen::Vector3d position(
+          p[0].as<double>(), p[1].as<double>(), p[2].as<double>());
+
+        const auto& v = wp[key_velocity];
+        const Eigen::Vector3d velocity(
+          v[0].as<double>(), v[1].as<double>(), v[2].as<double>());
+
+        trajectory.insert(
+          rmf_traffic::Time(rmf_traffic::time::from_seconds(time)),
+          position, velocity);
       }
-      else
+
+      const std::string map = obstacle[key_map].as<std::string>();
+      description.obstacle_routes.push_back({name, {map, trajectory}});
+    }
+    else
+    {
+      const auto& start = obstacle[key_start];
+      if (start)
       {
-        std::cout << "Obstacle [" << name <<
-          "] is missing key [start[initial_time]]. Using default value [0]." <<
-          std::endl;
-      }
-      const auto& waypoint = start[key_initial_waypoint];
-      if (waypoint)
-      {
-        initial_waypoint = waypoint.as<std::string>();
+        const auto& time = start[key_initial_time];
+        if (time)
+        {
+          initial_time = time.as<std::size_t>();
+        }
+        else
+        {
+          initial_time = 0;
+          std::cout << "Obstacle [" << name <<
+            "] is missing key [start[initial_time]]. Using default value [0]."
+                    <<
+            std::endl;
+        }
+        const auto& waypoint = start[key_initial_waypoint];
+        if (waypoint)
+        {
+          initial_waypoint = waypoint.as<std::string>();
+        }
+        else
+        {
+          throw YAML::ParserException(
+                  start.Mark(),
+                  "Obstacle [" + name + "] is missing key [" + key_initial_waypoint +
+                  "]");
+        }
+        const auto& orientation = start[key_initial_orientation];
+        if (orientation)
+        {
+          initial_orientation = waypoint.as<double>();
+        }
+        else
+        {
+          initial_orientation = 0;
+          std::cout << "Robot [" << name <<
+            "] is missing key [start[initial_orientation]]. Assuming initial_orientation 0."
+                    << std::endl;
+        }
       }
       else
       {
         throw YAML::ParserException(
-                start.Mark(),
-                "Obstacle [" + name + "] is missing key [" + key_initial_waypoint +
-                "]");
+                obstacle.Mark(),
+                "Obstacle [" + name + "] is missing key [" + key_start + "]");
       }
-      const auto& orientation = start[key_initial_orientation];
-      if (orientation)
+
+      const auto& goal = obstacle[key_goal];
+      if (goal)
       {
-        initial_orientation = waypoint.as<double>(0);
+        description.obstacle_plans.push_back({name, initial_time,
+            initial_orientation,
+            initial_waypoint, goal.as<std::string>()});
       }
       else
       {
-        std::cout << "Robot [" << name <<
-          "] is missing key [start[initial_orientation]]. Assuming initial_orientation 0."
-                  << std::endl;
+        throw YAML::ParserException(
+                obstacle.Mark(),
+                "Obstacle [" + name + "] is missing key [" + key_goal + "]");
       }
-    }
-    else
-    {
-      throw YAML::ParserException(
-              obstacle.Mark(),
-              "Obstacle [" + name + "] is missing key [" + key_start + "]");
-    }
-
-    const auto& goal = obstacle[key_goal];
-    if (goal)
-    {
-      description.obstacles.push_back({name, initial_time, initial_orientation,
-          initial_waypoint, goal.as<std::string>()});
-    }
-    else
-    {
-      throw YAML::ParserException(
-              obstacle.Mark(),
-              "Obstacle [" + name + "] is missing key [" + key_goal + "]");
     }
   }
 
@@ -433,10 +466,11 @@ void rmf_performance_tests::scenario::parse(
       const auto& time = start[key_initial_time];
       if (time)
       {
-        description.plan.initial_time = time.as<std::size_t>(0);
+        description.plan.initial_time = time.as<std::size_t>();
       }
       else
       {
+        description.plan.initial_time = 0;
         std::cout <<
           "Plan is missing key [start[initial_time]]. Using default value [0]."
                   << std::endl;
@@ -455,10 +489,11 @@ void rmf_performance_tests::scenario::parse(
       const auto& orientation = start[key_initial_orientation];
       if (orientation)
       {
-        description.plan.initial_orientation = waypoint.as<double>(0);
+        description.plan.initial_orientation = waypoint.as<double>();
       }
       else
       {
+        description.plan.initial_orientation = 0;
         std::cout <<
           "Plan is missing key [start[initial_orientation]]. Assuming initial_orientation 0."
                   << std::endl;
