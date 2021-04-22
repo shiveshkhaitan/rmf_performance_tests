@@ -413,7 +413,7 @@ void rmf_performance_tests::scenario::parse(
         const auto& orientation = start[key_initial_orientation];
         if (orientation)
         {
-          initial_orientation = waypoint.as<double>();
+          initial_orientation = orientation.as<double>();
         }
         else
         {
@@ -489,7 +489,7 @@ void rmf_performance_tests::scenario::parse(
       const auto& orientation = start[key_initial_orientation];
       if (orientation)
       {
-        description.plan.initial_orientation = waypoint.as<double>();
+        description.plan.initial_orientation = orientation.as<double>();
       }
       else
       {
