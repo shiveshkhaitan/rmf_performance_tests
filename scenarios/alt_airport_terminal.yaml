@@ -15,7 +15,6 @@ robots:
       angular: {velocity: 0.75, acceleration: 1.5}
     profile:
       footprint: {shape: circle, radius: 0.2}
-    graph: /airport_terminal/nav_graphs/1.yaml
 
 obstacles:
 
