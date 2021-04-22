@@ -15,221 +15,115 @@
  *
 */
 
-#include <rmf_traffic/agv/Planner.hpp>
-#include <rmf_traffic/agv/debug/debug_Planner.hpp>
-#include <rmf_traffic/agv/RouteValidator.hpp>
-
-#include <rmf_traffic/geometry/Circle.hpp>
-
-#include <rmf_traffic/schedule/Database.hpp>
-#include <rmf_traffic/schedule/Participant.hpp>
-
-#include <rmf_fleet_adapter/agv/parse_graph.hpp>
+#include <rmf_performance_tests/rmf_performance_tests.hpp>
+#include <rmf_performance_tests/Scenario.hpp>
 
 #include <iostream>
 
-const std::size_t NotObstacleID = std::numeric_limits<std::size_t>::max();
+#include <yaml-cpp/yaml.h>
 
-rmf_traffic::schedule::Participant add_obstacle(
-  const rmf_traffic::agv::Planner& planner,
-  const std::shared_ptr<rmf_traffic::schedule::Database>& database,
-  const rmf_traffic::agv::Plan::Start& start,
-  const rmf_traffic::agv::Plan::Goal& goal)
+int main(int argc, char* argv[])
 {
-  const auto N = database->participant_ids().size();
-
-  auto new_obstacle = rmf_traffic::schedule::make_participant(
-        rmf_traffic::schedule::ParticipantDescription{
-          "obstacle_" + std::to_string(N),
-          "obstacles",
-          rmf_traffic::schedule::ParticipantDescription::Rx::Unresponsive,
-          planner.get_configuration().vehicle_traits().profile()
-        }, database);
-
-  const auto plan = planner.plan(start, goal);
-  new_obstacle.set(plan->get_itinerary());
-  return new_obstacle;
-}
-
-void print_result(
-  const std::string& label,
-  const std::size_t samples,
-  const double total_time,
-  const std::size_t node_count)
-{
-  std::cout << label
-            << "\n -- Total time for " << samples << " samples: "
-            << total_time
-            << "\n -- Average time per run: " << total_time/samples
-            << "\n -- Node count: " << node_count
-            << "\n" << std::endl;
-}
-
-double test_planner_timing_no_cache(
-  const std::string& label,
-  const std::size_t samples,
-  const rmf_traffic::agv::Planner::Configuration& config,
-  const rmf_traffic::agv::Planner::Options& options,
-  const rmf_traffic::agv::Plan::Start& start,
-  const rmf_traffic::agv::Plan::Goal& goal)
-{
-  // Run a test where we produce a new planner every time so we see what the
-  // timing is if the cache is blank
-  const auto begin_time = std::chrono::steady_clock::now();
-  for (std::size_t i=0; i < samples; ++i)
+  if (argc < 2)
   {
-    rmf_traffic::agv::Planner planner(config, options);
-    planner.plan(start, goal);
+    std::cout << "Please provide scenario file name" << std::endl;
+    return 1;
   }
-  const auto finish_time = std::chrono::steady_clock::now();
 
-  const double total_time = rmf_traffic::time::to_seconds(
-        finish_time - begin_time);
-
-  const auto nodes = rmf_traffic::agv::Planner::Debug::node_count(
-        rmf_traffic::agv::Planner(config, options).plan(start, goal));
-
-  print_result(label + " | No Cache", samples, total_time, nodes);
-
-  return total_time;
-}
-
-double test_planner_timing_with_cache(
-  const std::string& label,
-  const std::size_t samples,
-  const rmf_traffic::agv::Planner::Configuration& config,
-  const rmf_traffic::agv::Planner::Options& options,
-  const rmf_traffic::agv::Plan::Start& start,
-  const rmf_traffic::agv::Plan::Goal& goal)
-{
-  // Run a test where we prime the planner by solving it once. Future runs will
-  // not need to recompute the heuristic.
-  rmf_traffic::agv::Planner planner(config,  options);
-  planner.plan(start, goal);
-
-  const auto begin_time = std::chrono::steady_clock::now();
-  for (std::size_t i=0; i < samples; ++i)
+  rmf_performance_tests::scenario::Description scenario;
+  try
   {
-    planner.plan(start, goal);
+    parse(argv[1], scenario);
   }
-  const auto finish_time = std::chrono::steady_clock::now();
+  catch (std::runtime_error& e)
+  {
+    std::cout << e.what() << std::endl;
+    return 1;
+  }
 
-  const double total_time = rmf_traffic::time::to_seconds(
-        finish_time - begin_time);
-
-  const auto nodes = rmf_traffic::agv::Planner::Debug::node_count(
-        rmf_traffic::agv::Planner(config, options).plan(start, goal));
-
-  print_result(label + " | With Cache", samples, total_time, nodes);
-
-  return total_time;
-}
-
-void test_planner_timing(
-  const std::string& label,
-  const std::size_t samples,
-  const rmf_traffic::agv::Planner::Configuration& config,
-  const rmf_traffic::agv::Planner::Options& options,
-  const rmf_traffic::agv::Plan::Start& start,
-  const rmf_traffic::agv::Plan::Goal& goal)
-{
-  std::cout << " --------- \n" << std::endl;
-
-  // For each variation of test, we run many samples and then see what the
-  // average time is.
-  const double no_cache_time = test_planner_timing_no_cache(
-        label, samples, config, options, start, goal);
-
-  const double with_cache_time = test_planner_timing_with_cache(
-        label, samples, config, options, start, goal);
-
-  std::cout << "Cache speed boost: x" << no_cache_time/with_cache_time
-            << "\n" << std::endl;
-}
-
-void test_planner(
-  const std::string& label,
-  const std::size_t samples,
-  const rmf_traffic::agv::Graph& graph,
-  const rmf_traffic::agv::VehicleTraits& traits,
-  const std::shared_ptr<rmf_traffic::schedule::Database>& database,
-  const rmf_traffic::agv::Plan::Start& start,
-  const rmf_traffic::agv::Plan::Goal& goal)
-{
-  test_planner_timing(
-    label + " | No Obstacles",
-    samples,
-    {graph, traits},
-    {nullptr},
-    start, goal
-  );
-
-  const auto obstacle_validator =
-      rmf_traffic::agv::ScheduleRouteValidator::make(
-        database, NotObstacleID, traits.profile());
-
-  test_planner_timing(
-    label + " | With Obstacles",
-    samples,
-    {graph, traits},
-    {obstacle_validator},
-    start, goal
-  );
-}
-
-int main()
-{
   using namespace std::chrono_literals;
 
-  rmf_traffic::agv::VehicleTraits traits{
-    {0.5, 2.0}, {0.75, 1.5},
-    rmf_traffic::Profile{
-      rmf_traffic::geometry::make_final_convex(
-            rmf_traffic::geometry::Circle(0.2))
-    }
-  };
-
-  const std::string office_map_file = TEST_MAP_DIR"/office/nav_graphs/0.yaml";
-  std::cout << "Loading [" << office_map_file << "]" << std::endl;
-  const auto office_graph =
-      rmf_fleet_adapter::agv::parse_graph(office_map_file, traits);
-
-  const auto get_wp = [&](const std::string& name)
+  const auto& plan_robot = scenario.robots.find(scenario.plan.robot);
+  if (plan_robot == scenario.robots.end())
   {
-    return office_graph.find_waypoint(name)->index();
-  };
+    std::cout << "Plan robot [" << scenario.plan.robot <<
+      "]'s limits and profile missing" << std::endl;
+    return 1;
+  }
+
+  const auto get_wp =
+    [&](const rmf_traffic::agv::Graph& graph, const std::string& name)
+    {
+      return graph.find_waypoint(name)->index();
+    };
 
   const auto start_time = std::chrono::steady_clock::now();
 
   // We'll make some "obstacles" in the environment by planning routes between
   // various waypoints.
-  rmf_traffic::agv::Planner planner{
-    {office_graph, traits},
-    {nullptr}
-  };
 
   const auto database = std::make_shared<rmf_traffic::schedule::Database>();
   std::vector<rmf_traffic::schedule::Participant> obstacles;
 
-  obstacles.emplace_back(
-    add_obstacle(
-      planner, database,
-      {start_time, get_wp("tinyRobot2_charger"), 90.0*M_PI/180.0},
-      get_wp("lounge")
-    )
-  );
+  for (const auto& obstacle : scenario.obstacles)
+  {
+    const auto& robot = scenario.robots.find(obstacle.robot);
 
-  obstacles.emplace_back(
-    add_obstacle(
-      planner, database,
-      {start_time + 30s, get_wp("supplies"), 0.0},
-      get_wp("tinyRobot2_charger")
-    )
-  );
+    if (robot == scenario.robots.end())
+    {
+      std::cout << "Robot [" << obstacle.robot <<
+        "] is missing limits / profile / graph. Using limits, profile and graph of plan_robot."
+                << std::endl;
 
-  test_planner(
-    "Office hardware_2 -> supplies", 100,
-    office_graph, traits, database,
-    {start_time, get_wp("hardware_2"), 0.0}, get_wp("supplies")
+      rmf_traffic::agv::Planner planner = rmf_traffic::agv::Planner{
+        plan_robot->second,
+        {nullptr}
+      };
+
+      obstacles.emplace_back(
+        rmf_performance_tests::add_obstacle(
+          planner, database,
+          {
+            start_time + std::chrono::seconds(obstacle.initial_time),
+            get_wp(plan_robot->second.graph(), obstacle.initial_waypoint),
+            obstacle.initial_orientation * M_PI / 180.0
+          },
+          get_wp(plan_robot->second.graph(), obstacle.goal)
+        )
+      );
+    }
+    else
+    {
+      rmf_traffic::agv::Planner planner = rmf_traffic::agv::Planner{
+        robot->second,
+        {nullptr}
+      };
+
+      obstacles.emplace_back(
+        rmf_performance_tests::add_obstacle(
+          planner, database,
+          {
+            start_time + std::chrono::seconds(obstacle.initial_time),
+            get_wp(robot->second.graph(), obstacle.initial_waypoint),
+            obstacle.initial_orientation * M_PI / 180.0
+          },
+          get_wp(robot->second.graph(), obstacle.goal)
+        )
+      );
+    }
+  }
+
+  const auto& plan = scenario.plan;
+
+  rmf_performance_tests::test_planner(
+    plan.initial_waypoint + " -> " + plan.goal,
+    scenario.samples,
+    plan_robot->second.graph(), plan_robot->second.vehicle_traits(), database,
+    {
+      start_time + std::chrono::seconds(plan.initial_time),
+      get_wp(
+        plan_robot->second.graph(), plan.initial_waypoint), plan.initial_orientation
+    },
+    get_wp(plan_robot->second.graph(), plan.goal)
   );
 }
