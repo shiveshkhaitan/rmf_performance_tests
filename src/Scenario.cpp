@@ -110,14 +110,16 @@ void rmf_performance_tests::scenario::parse(
 
   if (scenario_config[key_samples])
   {
-    description.samples = scenario_config[key_samples].as<std::size_t>(100);
+    description.samples = scenario_config[key_samples].as<std::size_t>();
   }
   else
   {
+    description.samples = 100;
     std::cout <<
       "Scenario file is missing the [samples] key. Using default value [100]" <<
       std::endl;
   }
+  std::cout<<description.samples<<std::endl;
 
   const YAML::Node robots = scenario_config[key_robots];
 
