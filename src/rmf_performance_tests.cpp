@@ -81,6 +81,7 @@ void print_result(
 double test_planner_timing_no_cache(
   const std::string& label,
   const std::size_t samples,
+  const std::optional<rmf_traffic::Duration> max_duration,
   const rmf_traffic::agv::Planner::Configuration& config,
   const rmf_traffic::agv::Planner::Options& options,
   const rmf_traffic::agv::Plan::Start& start,
@@ -90,10 +91,19 @@ double test_planner_timing_no_cache(
   // timing is if the cache is blank
   std::optional<rmf_traffic::agv::Plan> plan;
   const auto begin_time = std::chrono::steady_clock::now();
-  for (std::size_t i = 0; i < samples; ++i)
+  std::size_t i;
+  for (i = 0; i < samples; ++i)
   {
     rmf_traffic::agv::Planner planner(config, options);
     plan = *planner.plan(start, goal);
+
+    const auto finish_time = std::chrono::steady_clock::now();
+    if (max_duration.has_value() && finish_time - begin_time > max_duration)
+    {
+      i = i + 1;
+      std::cout << "Aborting as maximum allowed time elapsed!" << std::endl;
+      break;
+    }
   }
   const auto finish_time = std::chrono::steady_clock::now();
 
@@ -130,7 +140,7 @@ double test_planner_timing_no_cache(
   const auto nodes = rmf_traffic::agv::Planner::Debug::node_count(
     rmf_traffic::agv::Planner(config, options).plan(start, goal));
 
-  print_result(label + " | No Cache", samples, total_time, nodes);
+  print_result(label + " | No Cache", i, total_time, nodes);
 
   return total_time;
 }
@@ -138,6 +148,7 @@ double test_planner_timing_no_cache(
 double test_planner_timing_with_cache(
   const std::string& label,
   const std::size_t samples,
+  const std::optional<rmf_traffic::Duration> max_duration,
   const rmf_traffic::agv::Planner::Configuration& config,
   const rmf_traffic::agv::Planner::Options& options,
   const rmf_traffic::agv::Plan::Start& start,
@@ -149,9 +160,17 @@ double test_planner_timing_with_cache(
   planner.plan(start, goal);
 
   const auto begin_time = std::chrono::steady_clock::now();
-  for (std::size_t i = 0; i < samples; ++i)
+  std::size_t i;
+  for (i = 0; i < samples; ++i)
   {
     planner.plan(start, goal);
+    const auto finish_time = std::chrono::steady_clock::now();
+    if (max_duration.has_value() && finish_time - begin_time > max_duration)
+    {
+      i = i + 1;
+      std::cout << "Aborting as maximum allowed time elapsed!" << std::endl;
+      break;
+    }
   }
   const auto finish_time = std::chrono::steady_clock::now();
 
@@ -161,7 +180,7 @@ double test_planner_timing_with_cache(
   const auto nodes = rmf_traffic::agv::Planner::Debug::node_count(
     rmf_traffic::agv::Planner(config, options).plan(start, goal));
 
-  print_result(label + " | With Cache", samples, total_time, nodes);
+  print_result(label + " | With Cache", i, total_time, nodes);
 
   return total_time;
 }
@@ -169,6 +188,7 @@ double test_planner_timing_with_cache(
 void test_planner_timing(
   const std::string& label,
   const std::size_t samples,
+  const std::optional<rmf_traffic::Duration> max_duration,
   const rmf_traffic::agv::Planner::Configuration& config,
   const rmf_traffic::agv::Planner::Options& options,
   const rmf_traffic::agv::Plan::Start& start,
@@ -179,10 +199,10 @@ void test_planner_timing(
   // For each variation of test, we run many samples and then see what the
   // average time is.
   const double no_cache_time = test_planner_timing_no_cache(
-    label, samples, config, options, start, goal);
+    label, samples, max_duration, config, options, start, goal);
 
   const double with_cache_time = test_planner_timing_with_cache(
-    label, samples, config, options, start, goal);
+    label, samples, max_duration, config, options, start, goal);
 
   std::cout << "Cache speed boost: x" << no_cache_time / with_cache_time
             << "\n" << std::endl;
@@ -191,6 +211,7 @@ void test_planner_timing(
 void test_planner(
   const std::string& label,
   const std::size_t samples,
+  const std::optional<rmf_traffic::Duration> max_duration,
   const rmf_traffic::agv::Graph& graph,
   const rmf_traffic::agv::VehicleTraits& traits,
   const std::shared_ptr<rmf_traffic::schedule::Database>& database,
@@ -200,6 +221,7 @@ void test_planner(
   test_planner_timing(
     label + " | No Obstacles",
     samples,
+    max_duration,
     {graph, traits},
     {nullptr},
     start, goal
@@ -212,6 +234,7 @@ void test_planner(
   test_planner_timing(
     label + " | With Obstacles",
     samples,
+    max_duration,
     {graph, traits},
     {obstacle_validator},
     start, goal

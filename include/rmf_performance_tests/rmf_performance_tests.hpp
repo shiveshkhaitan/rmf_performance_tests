@@ -45,6 +45,7 @@ void print_result(
 double test_planner_timing_no_cache(
   const std::string& label,
   const std::size_t samples,
+  const std::optional<rmf_traffic::Duration> max_duration,
   const rmf_traffic::agv::Planner::Configuration& config,
   const rmf_traffic::agv::Planner::Options& options,
   const rmf_traffic::agv::Plan::Start& start,
@@ -53,6 +54,7 @@ double test_planner_timing_no_cache(
 double test_planner_timing_with_cache(
   const std::string& label,
   const std::size_t samples,
+  const std::optional<rmf_traffic::Duration> max_duration,
   const rmf_traffic::agv::Planner::Configuration& config,
   const rmf_traffic::agv::Planner::Options& options,
   const rmf_traffic::agv::Plan::Start& start,
@@ -61,6 +63,7 @@ double test_planner_timing_with_cache(
 void test_planner_timing(
   const std::string& label,
   const std::size_t samples,
+  const std::optional<rmf_traffic::Duration> max_duration,
   const rmf_traffic::agv::Planner::Configuration& config,
   const rmf_traffic::agv::Planner::Options& options,
   const rmf_traffic::agv::Plan::Start& start,
@@ -69,6 +72,7 @@ void test_planner_timing(
 void test_planner(
   const std::string& label,
   const std::size_t samples,
+  const std::optional<rmf_traffic::Duration> max_duration,
   const rmf_traffic::agv::Graph& graph,
   const rmf_traffic::agv::VehicleTraits& traits,
   const std::shared_ptr<rmf_traffic::schedule::Database>& database,

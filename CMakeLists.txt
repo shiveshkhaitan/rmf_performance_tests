@@ -13,6 +13,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rmf_traffic REQUIRED)
 find_package(rmf_fleet_adapter REQUIRED)
+find_package(Boost COMPONENTS program_options REQUIRED)
 
 include(GNUInstallDirs)
 
@@ -69,6 +70,7 @@ target_link_libraries(
     PRIVATE
     rmf_traffic::rmf_traffic
     rmf_fleet_adapter::rmf_fleet_adapter
+    ${Boost_LIBRARIES}
 )
 
 target_include_directories(
