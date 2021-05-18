@@ -19,6 +19,8 @@
 #include <rmf_fleet_adapter/agv/parse_graph.hpp>
 #include <rmf_traffic/geometry/Circle.hpp>
 
+#include <boost/program_options.hpp>
+
 #include <iostream>
 
 bool rmf_performance_tests::scenario::load(
@@ -56,11 +58,125 @@ bool rmf_performance_tests::scenario::load_graph(
   return true;
 }
 
+std::pair<std::string, std::string>
+rmf_performance_tests::scenario::parse_test_options(const std::string& args)
+{
+  if (args.find("+o") == 0)
+  {
+    return std::make_pair(std::string("+o"), std::string("true"));
+  }
+  if (args.find("-o") == 0)
+  {
+    return std::make_pair(std::string("-o"), std::string("true"));
+  }
+  if (args.find("+c") == 0)
+  {
+    return std::make_pair(std::string("+c"), std::string("true"));
+  }
+  if (args.find("-c") == 0)
+  {
+    return std::make_pair(std::string("-c"), std::string("true"));
+  }
+  return std::make_pair(std::string(), std::string());
+}
+
+rmf_performance_tests::scenario::Arguments
+rmf_performance_tests::scenario::parse_arguments(int argc, char** argv)
+{
+  Arguments arguments{};
+
+  std::size_t samples;
+  double max_duration;
+
+  boost::program_options::options_description desc("Allowed options");
+  desc.add_options() // options
+    ("help", "produce help message") // help
+    ("scenario",
+    boost::program_options::value<std::string>(&arguments.scenario_file)->
+    required(),
+    "scenario path/name") // scenario
+    ("samples",
+    boost::program_options::value<std::size_t>(&samples),
+    "number of samples") // samples
+    ("max_duration",
+    boost::program_options::value<double>(&max_duration),
+    "max duration in seconds") // duration
+    ("+o", boost::program_options::value<std::string>(),
+    "only run obstacles tests") // only run obstacles tests
+    ("-o", boost::program_options::value<std::string>(),
+    "disable obstacles tests") // disable obstacles tests
+    ("+c", boost::program_options::value<std::string>(),
+    "only run caching tests") // only run caching tests
+    ("-c", boost::program_options::value<std::string>(),
+    "disable caching tests") // disable caching tests
+  ;
+
+  boost::program_options::variables_map variables_map;
+  boost::program_options::store(
+    boost::program_options::command_line_parser(argc, argv)
+    .options(desc)
+    .extra_parser(parse_test_options)
+    .run(),
+    variables_map);
+  boost::program_options::notify(variables_map);
+
+  if (variables_map.count("help"))
+  {
+    std::cout << desc << "\n";
+    exit(1);
+  }
+
+  if (variables_map.count("samples"))
+  {
+    arguments.samples = samples;
+  }
+
+  if (variables_map.count("max_duration"))
+  {
+    arguments.max_duration = max_duration;
+  }
+
+  if (variables_map.count("+o") && variables_map.count("-o"))
+  {
+    std::cout << "Either +o or -o is allowed. \n";
+    exit(1);
+  }
+
+  if (variables_map.count("+c") && variables_map.count("-c"))
+  {
+    std::cout << "Either +c or -c is allowed. \n";
+    exit(1);
+  }
+
+  if (variables_map.count("+o"))
+  {
+    arguments.include_no_obstacle_tests = false;
+  }
+
+  if (variables_map.count("-o"))
+  {
+    arguments.include_obstacle_tests = false;
+  }
+
+  if (variables_map.count("+c"))
+  {
+    arguments.include_no_cache_tests = false;
+  }
+
+  if (variables_map.count("-c"))
+  {
+    arguments.include_cache_tests = false;
+  }
+
+  return arguments;
+}
+
 void rmf_performance_tests::scenario::parse(
-  std::string scenario_file,
+  Arguments arguments,
   Description& description)
 {
   const std::string key_samples = "samples";
+  const std::string key_max_duration = "max_duration";
   const std::string key_robots = "robots";
   const std::string key_limits = "limits";
   const std::string key_linear = "linear";
@@ -84,6 +200,8 @@ void rmf_performance_tests::scenario::parse(
   const std::string key_initial_waypoint = "initial_waypoint";
   const std::string key_initial_orientation = "initial_orientation";
   const std::string key_plan = "plan";
+
+  std::string scenario_file = arguments.scenario_file;
 
   YAML::Node scenario_config;
   if (load(scenario_file, scenario_config))
@@ -112,7 +230,11 @@ void rmf_performance_tests::scenario::parse(
     }
   }
 
-  if (scenario_config[key_samples])
+  if (arguments.samples.has_value())
+  {
+    description.samples = arguments.samples.value();
+  }
+  else if (scenario_config[key_samples])
   {
     description.samples = scenario_config[key_samples].as<std::size_t>();
   }
@@ -120,8 +242,21 @@ void rmf_performance_tests::scenario::parse(
   {
     description.samples = 100;
     std::cout <<
-      "Scenario file is missing the [samples] key. Using default value [100]" <<
+      "Command line arguments and scenario file are missing the [samples] key. "
+      "Using default value [100]" <<
       std::endl;
+  }
+
+  if (arguments.max_duration.has_value())
+  {
+    description.max_duration = rmf_traffic::time::from_seconds(
+      arguments.max_duration.value());
+  }
+  else if (scenario_config[key_max_duration])
+  {
+    description.max_duration =
+      rmf_traffic::time::from_seconds(
+      scenario_config[key_max_duration].as<double>());
   }
 
   std::unordered_set<std::string> graph_required;

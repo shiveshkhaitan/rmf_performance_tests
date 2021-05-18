@@ -24,16 +24,12 @@
 
 int main(int argc, char* argv[])
 {
-  if (argc < 2)
-  {
-    std::cout << "Please provide scenario file name" << std::endl;
-    return 1;
-  }
+  auto arguments = rmf_performance_tests::scenario::parse_arguments(argc, argv);
 
   rmf_performance_tests::scenario::Description scenario;
   try
   {
-    parse(argv[1], scenario);
+    parse(arguments, scenario);
   }
   catch (std::runtime_error& e)
   {
@@ -129,12 +125,17 @@ int main(int argc, char* argv[])
   rmf_performance_tests::test_planner(
     plan.initial_waypoint + " -> " + plan.goal,
     scenario.samples,
+    scenario.max_duration,
     plan_robot->second.graph(), plan_robot->second.vehicle_traits(), database,
     {
       start_time + std::chrono::seconds(plan.initial_time),
       get_wp(
         plan_robot->second.graph(), plan.initial_waypoint), plan.initial_orientation
     },
-    get_wp(plan_robot->second.graph(), plan.goal)
+    get_wp(plan_robot->second.graph(), plan.goal),
+    arguments.include_obstacle_tests,
+    arguments.include_no_obstacle_tests,
+    arguments.include_cache_tests,
+    arguments.include_no_cache_tests
   );
 }

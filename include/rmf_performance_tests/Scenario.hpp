@@ -43,6 +43,7 @@ struct Route
 struct Description
 {
   std::size_t samples;
+  std::optional<rmf_traffic::Duration> max_duration;
 
   std::unordered_map<std::string,
     rmf_traffic::agv::Planner::Configuration> robots;
@@ -52,6 +53,17 @@ struct Description
   Plan plan;
 };
 
+struct Arguments
+{
+  std::string scenario_file;
+  std::optional<std::size_t> samples;
+  std::optional<double> max_duration;
+  bool include_no_obstacle_tests = true;
+  bool include_obstacle_tests = true;
+  bool include_no_cache_tests = true;
+  bool include_cache_tests = true;
+};
+
 bool load(std::string file_name, YAML::Node& node);
 
 bool load_graph(
@@ -59,7 +71,11 @@ bool load_graph(
   rmf_traffic::agv::VehicleTraits traits,
   rmf_traffic::agv::Graph& graph);
 
-void parse(std::string scenario_file, Description& description);
+std::pair<std::string, std::string> parse_test_options(const std::string& args);
+
+Arguments parse_arguments(int argc, char* argv[]);
+
+void parse(Arguments arguments, Description& description);
 
 }
 }

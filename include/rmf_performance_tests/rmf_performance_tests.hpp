@@ -38,13 +38,14 @@ rmf_traffic::schedule::Participant add_obstacle(
 
 void print_result(
   const std::string& label,
-  const std::size_t samples,
-  const double total_time,
-  const std::size_t node_count);
+  const std::size_t& samples,
+  const double& total_time,
+  const std::size_t& node_count);
 
 double test_planner_timing_no_cache(
   const std::string& label,
-  const std::size_t samples,
+  const std::size_t& samples,
+  const std::optional<rmf_traffic::Duration>& max_duration,
   const rmf_traffic::agv::Planner::Configuration& config,
   const rmf_traffic::agv::Planner::Options& options,
   const rmf_traffic::agv::Plan::Start& start,
@@ -52,7 +53,8 @@ double test_planner_timing_no_cache(
 
 double test_planner_timing_with_cache(
   const std::string& label,
-  const std::size_t samples,
+  const std::size_t& samples,
+  const std::optional<rmf_traffic::Duration>& max_duration,
   const rmf_traffic::agv::Planner::Configuration& config,
   const rmf_traffic::agv::Planner::Options& options,
   const rmf_traffic::agv::Plan::Start& start,
@@ -60,20 +62,28 @@ double test_planner_timing_with_cache(
 
 void test_planner_timing(
   const std::string& label,
-  const std::size_t samples,
+  const std::size_t& samples,
+  const std::optional<rmf_traffic::Duration>& max_duration,
   const rmf_traffic::agv::Planner::Configuration& config,
   const rmf_traffic::agv::Planner::Options& options,
   const rmf_traffic::agv::Plan::Start& start,
-  const rmf_traffic::agv::Plan::Goal& goal);
+  const rmf_traffic::agv::Plan::Goal& goal,
+  const bool& include_cache_tests,
+  const bool& include_no_cache_tests);
 
 void test_planner(
   const std::string& label,
-  const std::size_t samples,
+  const std::size_t& samples,
+  const std::optional<rmf_traffic::Duration>& max_duration,
   const rmf_traffic::agv::Graph& graph,
   const rmf_traffic::agv::VehicleTraits& traits,
   const std::shared_ptr<rmf_traffic::schedule::Database>& database,
   const rmf_traffic::agv::Plan::Start& start,
-  const rmf_traffic::agv::Plan::Goal& goal);
+  const rmf_traffic::agv::Plan::Goal& goal,
+  const bool& include_obstacle_tests,
+  const bool& include_no_obstacle_tests,
+  const bool& include_cache_tests,
+  const bool& include_no_cache_tests);
 
 std::string get_map_directory();
 
