@@ -58,6 +58,28 @@ bool rmf_performance_tests::scenario::load_graph(
   return true;
 }
 
+std::pair<std::string, std::string>
+rmf_performance_tests::scenario::parse_test_options(const std::string& args)
+{
+  if (args.find("+o") == 0)
+  {
+    return std::make_pair(std::string("+o"), std::string("true"));
+  }
+  if (args.find("-o") == 0)
+  {
+    return std::make_pair(std::string("-o"), std::string("true"));
+  }
+  if (args.find("+c") == 0)
+  {
+    return std::make_pair(std::string("+c"), std::string("true"));
+  }
+  if (args.find("-c") == 0)
+  {
+    return std::make_pair(std::string("-c"), std::string("true"));
+  }
+  return std::make_pair(std::string(), std::string());
+}
+
 rmf_performance_tests::scenario::Arguments
 rmf_performance_tests::scenario::parse_arguments(int argc, char** argv)
 {
@@ -79,11 +101,22 @@ rmf_performance_tests::scenario::parse_arguments(int argc, char** argv)
     ("max_duration",
     boost::program_options::value<double>(&max_duration),
     "max duration in seconds") // duration
+    ("+o", boost::program_options::value<std::string>(),
+    "only run obstacles tests") // only run obstacles tests
+    ("-o", boost::program_options::value<std::string>(),
+    "disable obstacles tests") // disable obstacles tests
+    ("+c", boost::program_options::value<std::string>(),
+    "only run caching tests") // only run caching tests
+    ("-c", boost::program_options::value<std::string>(),
+    "disable caching tests") // disable caching tests
   ;
 
   boost::program_options::variables_map variables_map;
   boost::program_options::store(
-    boost::program_options::parse_command_line(argc, argv, desc),
+    boost::program_options::command_line_parser(argc, argv)
+    .options(desc)
+    .extra_parser(parse_test_options)
+    .run(),
     variables_map);
   boost::program_options::notify(variables_map);
 
@@ -101,6 +134,38 @@ rmf_performance_tests::scenario::parse_arguments(int argc, char** argv)
   if (variables_map.count("max_duration"))
   {
     arguments.max_duration = max_duration;
+  }
+
+  if (variables_map.count("+o") && variables_map.count("-o"))
+  {
+    std::cout << "Either +o or -o is allowed. \n";
+    exit(1);
+  }
+
+  if (variables_map.count("+c") && variables_map.count("-c"))
+  {
+    std::cout << "Either +c or -c is allowed. \n";
+    exit(1);
+  }
+
+  if (variables_map.count("+o"))
+  {
+    arguments.include_no_obstacle_tests = false;
+  }
+
+  if (variables_map.count("-o"))
+  {
+    arguments.include_obstacle_tests = false;
+  }
+
+  if (variables_map.count("+c"))
+  {
+    arguments.include_no_cache_tests = false;
+  }
+
+  if (variables_map.count("-c"))
+  {
+    arguments.include_cache_tests = false;
   }
 
   return arguments;

@@ -132,6 +132,10 @@ int main(int argc, char* argv[])
       get_wp(
         plan_robot->second.graph(), plan.initial_waypoint), plan.initial_orientation
     },
-    get_wp(plan_robot->second.graph(), plan.goal)
+    get_wp(plan_robot->second.graph(), plan.goal),
+    arguments.include_obstacle_tests,
+    arguments.include_no_obstacle_tests,
+    arguments.include_cache_tests,
+    arguments.include_no_cache_tests
   );
 }

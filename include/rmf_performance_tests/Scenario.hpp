@@ -58,6 +58,10 @@ struct Arguments
   std::string scenario_file;
   std::optional<std::size_t> samples;
   std::optional<double> max_duration;
+  bool include_no_obstacle_tests = true;
+  bool include_obstacle_tests = true;
+  bool include_no_cache_tests = true;
+  bool include_cache_tests = true;
 };
 
 bool load(std::string file_name, YAML::Node& node);
@@ -66,6 +70,8 @@ bool load_graph(
   std::string file_name,
   rmf_traffic::agv::VehicleTraits traits,
   rmf_traffic::agv::Graph& graph);
+
+std::pair<std::string, std::string> parse_test_options(const std::string& args);
 
 Arguments parse_arguments(int argc, char* argv[]);
 
